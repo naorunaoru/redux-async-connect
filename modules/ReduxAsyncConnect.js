@@ -144,7 +144,7 @@ class ReduxAsyncConnect extends React.Component {
 
     loadDataCounter++;
 
-    if (loadResult && loadResult.then instanceof Function) {
+    if (loadResult.async) {
       this.props.beginGlobalLoad();
       return (loadDataCounterOriginal => {
         loadResult.promise.then(() => {
@@ -162,6 +162,8 @@ class ReduxAsyncConnect extends React.Component {
         })
       })(loadDataCounter);
     } else {
+      this.props.endGlobalLoad();
+      this.props.fullEndGlobalLoad();
       this.setState({propsToShow: props});
     }
     return Promise.resolve(null);

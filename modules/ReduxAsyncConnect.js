@@ -51,15 +51,17 @@ function loadAsyncConnect({components, filter = () => true, skip = () => false, 
         return;
       }
 
-      let promiseOrResult = item.promise(rest);
-      if (promiseOrResult && promiseOrResult.then instanceof Function) {
-        promiseOrResult = promiseOrResult.catch(error => ({error}));
-        allPromises.push(promiseOrResult);
-        if (filter(item, Component)) {
-          async = true;
-          filteredKeys.push(item.key);
-          filteredPromises.push(promiseOrResult);
-        }
+      const promiseOrResult = item.promise(rest);
+      let itemPromise = promiseOrResult instanceof Promise ?
+          promiseOrResult :
+          Promise.resolve(promiseOrResult);
+
+      itemPromise = itemPromise.catch(error => ({error}));
+      allPromises.push(itemPromise);
+      if (filter(item, Component)) {
+        async = true;
+        filteredKeys.push(item.key);
+        filteredPromises.push(itemPromise);
       }
     });
   });
@@ -147,29 +149,22 @@ class ReduxAsyncConnect extends React.Component {
 
     loadDataCounter++;
 
-    if (loadResult.async) {
-      this.props.beginGlobalLoad();
-      return (loadDataCounterOriginal => {
-        loadResult.promise.then(() => {
-          // We need to change propsToShow only if loadAsyncData that called this promise
-          // is the last invocation of loadAsyncData method. Otherwise we can face situation
-          // when user is changing route several times and we finally show him route that has
-          // loaded props last time and not the last called route
-          if (loadDataCounter === loadDataCounterOriginal) {
-            this.setState({propsToShow: props});
-          }
-          this.props.endGlobalLoad();
-        });
-        return loadResult.allPromise.then(() => {
-          this.props.fullEndGlobalLoad();
-        })
-      })(loadDataCounter);
-    } else {
-      this.props.endGlobalLoad();
-      this.props.fullEndGlobalLoad();
-      this.setState({propsToShow: props});
-    }
-    return Promise.resolve(null);
+    this.props.beginGlobalLoad();
+    return (loadDataCounterOriginal => {
+      loadResult.promise.then(() => {
+        // We need to change propsToShow only if loadAsyncData that called this promise
+        // is the last invocation of loadAsyncData method. Otherwise we can face situation
+        // when user is changing route several times and we finally show him route that has
+        // loaded props last time and not the last called route
+        if (loadDataCounter === loadDataCounterOriginal) {
+          this.setState({propsToShow: props});
+        }
+        this.props.endGlobalLoad();
+      });
+      return loadResult.allPromise.then(() => {
+        this.props.fullEndGlobalLoad();
+      })
+    })(loadDataCounter);
   }
 
   render() {
